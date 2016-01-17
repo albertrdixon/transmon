@@ -32,6 +32,7 @@ type Transmission struct {
 	URL     *url.URL `json:"url"`
 	User    string   `json:"username"`
 	Pass    string   `json:"password"`
+	Config  string   `json:"config"`
 }
 
 type OpenVPN struct {

@@ -4,11 +4,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/albertrdixon/gearbox/logger"
 	"github.com/longnguyen11288/go-transmission/client"
 )
+
+type transmissionConfig struct {
+	Stuff   map[string]*json.RawMessage `json:",inline"`
+	Addr    string                      `json:"bind-address-ipv4"`
+	Port    int                         `json:"peer-port"`
+	Forward bool                        `json:"port-forwarding-enabled"`
+}
 
 type transmission struct {
 	client.ApiClient
@@ -90,4 +99,28 @@ func (t *transmission) updatePort(port int) error {
 		return errors.New(response.Result)
 	}
 	return nil
+}
+
+func updateTransmissionConfig(path, ip string, port int) error {
+	data, er := ioutil.ReadFile(path)
+	if er != nil {
+		return er
+	}
+
+	c := new(transmissionConfig)
+	if er := json.Unmarshal(data, c); er != nil {
+		return er
+	}
+
+	c.Addr = ip
+	c.Port = port
+	c.Forward = true
+
+	data, er = json.Marshal(c)
+	if er != nil {
+		return er
+	}
+
+	info, _ := os.Stat(path)
+	return ioutil.WriteFile(path, data, info.Mode().Perm())
 }

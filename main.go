@@ -97,6 +97,44 @@ func getIP(vpn *OpenVPN, timeout time.Duration, c context.Context) (string, erro
 	return address, backoff.RetryNotify(fn, b, notify)
 }
 
+func runTransAndVPN(c *Config, ctx context.Context) (*command, *command, error) {
+	t, er := newCommand("transmission", c.Transmission.Command)
+	if er != nil {
+		return nil, nil, er
+	}
+	v, er := newCommand("openvpn", c.OpenVPN.Command)
+	if er != nil {
+		return nil, nil, er
+	}
+	t.SetUser(c.Transmission.UID, c.Transmission.GID)
+
+	if er := v.Execute(ctx); er != nil {
+		return nil, nil, er
+	}
+
+	ip, er := getIP(c.OpenVPN, c.Timeout.Duration, ctx)
+	if er != nil || ctx.Err() != nil {
+		return nil, nil, er
+	}
+	logger.Infof("IP for %v is %v", c.OpenVPN.Tun, ip)
+
+	port, er := getPort(ip, c.PIA, c.Timeout.Duration, ctx)
+	if er != nil || ctx.Err() != nil {
+		return nil, nil, er
+	}
+	logger.Infof("Port from PIA is %d", port)
+
+	if er := updateTransmissionConfig(c.Transmission.Config, ip, port); er != nil {
+		return nil, nil, er
+	}
+
+	if er := t.Execute(ctx); er != nil {
+		return nil, nil, er
+	}
+
+	return t, v, nil
+}
+
 func main() {
 	kingpin.Version(version)
 	kingpin.MustParse(app.Parse(os.Args[1:]))
@@ -128,6 +166,10 @@ func main() {
 	}(stop)
 
 	// Restart VPN
+	trans, vpn, er := runTransAndVPN(config, c)
+	if er != nil {
+		logger.Fatalf(er.Error())
+	}
 	portUpdate(config, c)
 
 	logger.Infof("Waiting on event")
@@ -136,10 +178,14 @@ func main() {
 		case t := <-port.C:
 			logger.Infof("Updating transmission port at %v", t)
 			if er := portUpdate(config, c); er != nil {
-				// Restart VPN
+				trans.Stop()
+				vpn.Stop()
+				trans, vpn, _ = runTransAndVPN(config, c)
 			}
 		case <-restart.C:
-			// restart VPN
+			trans.Stop()
+			vpn.Stop()
+			trans, vpn, _ = runTransAndVPN(config, c)
 		case <-c.Done():
 			port.Stop()
 			restart.Stop()
