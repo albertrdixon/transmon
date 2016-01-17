@@ -2,7 +2,11 @@ package main
 
 import (
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
+
+	"golang.org/x/net/context"
 
 	"github.com/albertrdixon/gearbox/logger"
 	"github.com/cenkalti/backoff"
@@ -18,42 +22,54 @@ var (
 	level = app.Flag("log-level", "log level. One of: fatal, error, warn, info, debug").Short('l').Default("info").OverrideDefaultFromEnvar("LOG_LEVEL").Enum(logger.Levels...)
 )
 
-func portUpdate(c *Config) {
-	ip, er := getIP(c.OpenVPN, c.Timeout.Duration)
-	if er != nil {
-		logger.Errorf(er.Error())
-		return
+func portUpdate(c *Config, ctx context.Context) error {
+	ip, er := getIP(c.OpenVPN, c.Timeout.Duration, ctx)
+	if er != nil || ctx.Err() != nil {
+		return er
 	}
 	logger.Infof("IP for %v is %v", c.OpenVPN.Tun, ip)
 
-	port, er := getPort(ip, c.PIA, c.Timeout.Duration)
-	if er != nil {
-		logger.Errorf(er.Error())
-		return
+	port, er := getPort(ip, c.PIA, c.Timeout.Duration, ctx)
+	if er != nil || ctx.Err() != nil {
+		return er
 	}
 	logger.Infof("Port from PIA is %d", port)
 
 	logger.Infof("Updating transmission port now")
-	logger.Debugf("url=%s user=%s pass=%s", c.Transmission.URL.String(), c.Transmission.User, "*****")
-	t := newTransmissionClient(c.Transmission.URL.String(), c.Transmission.User, c.Transmission.Pass)
-	if er := t.updatePort(8888); er != nil {
-		logger.Errorf(er.Error())
-		return
+	notify := func(e error, w time.Duration) {
+		logger.Debugf("Failed to update transmission port: %v", er)
 	}
+	operation := func() error {
+		select {
+		default:
+			t := newTransmissionClient(c.Transmission.URL.String(), c.Transmission.User, c.Transmission.Pass)
+			return t.updatePort(port)
+		case <-ctx.Done():
+			return nil
+		}
+	}
+	b := backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = c.Timeout.Duration
+	return backoff.RetryNotify(operation, b, notify)
 }
 
-func getPort(ip string, pia *PIA, timeout time.Duration) (int, error) {
+func getPort(ip string, pia *PIA, timeout time.Duration, c context.Context) (int, error) {
 	var port int
 	notify := func(e error, w time.Duration) {
 		logger.Errorf("Failed to get port from %v (retry in %v): %v", pia.URL, w, e)
 	}
 	fn := func() error {
-		p, er := requestPort(ip, pia)
-		if er != nil {
-			return er
+		select {
+		default:
+			p, er := requestPort(ip, pia)
+			if er != nil {
+				return er
+			}
+			port = p
+			return nil
+		case <-c.Done():
+			return nil
 		}
-		port = p
-		return nil
 	}
 
 	b := backoff.NewExponentialBackOff()
@@ -61,14 +77,19 @@ func getPort(ip string, pia *PIA, timeout time.Duration) (int, error) {
 	return port, backoff.RetryNotify(fn, b, notify)
 }
 
-func getIP(vpn *OpenVPN, timeout time.Duration) (string, error) {
+func getIP(vpn *OpenVPN, timeout time.Duration, c context.Context) (string, error) {
 	var address string
 	notify := func(e error, w time.Duration) {
 		logger.Errorf("Failed to get IP for %q (retry in %v): %v", vpn.Tun, w, e)
 	}
 	fn := func() (er error) {
-		address, er = findIP(vpn)
-		return
+		select {
+		default:
+			address, er = findIP(vpn)
+			return
+		case <-c.Done():
+			return
+		}
 	}
 
 	b := backoff.NewExponentialBackOff()
@@ -90,16 +111,40 @@ func main() {
 		config.PIA.ClientID = uuid.New()
 	}
 
-	portUpdate(config)
-	// c, stop := context.WithCancel(context.Background())
+	logger.Infof("Port update will run once every hour")
+	port := time.NewTicker(5 * time.Second)
+	logger.Infof("VPN restart will run once every day")
+	restart := time.NewTicker(24 * time.Hour)
+	c, stop := context.WithCancel(context.Background())
 
-	// sig := make(chan os.Signal, 1)
-	// signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT)
-	// select {
-	// case <-sig:
-	// 	logger.Infof("Received interrupt, shutting down.")
-	// 	stop()
-	// 	time.Sleep(100 * time.Millisecond)
-	// 	os.Exit(0)
-	// }
+	go func(q context.CancelFunc) {
+		sig := make(chan os.Signal, 1)
+		signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT)
+		select {
+		case <-sig:
+			logger.Infof("Received interrupt, shutting down...")
+			q()
+		}
+	}(stop)
+
+	// Restart VPN
+	portUpdate(config, c)
+
+	logger.Infof("Waiting on event")
+	for {
+		select {
+		case t := <-port.C:
+			logger.Infof("Updating transmission port at %v", t)
+			if er := portUpdate(config, c); er != nil {
+				// Restart VPN
+			}
+		case <-restart.C:
+			// restart VPN
+		case <-c.Done():
+			port.Stop()
+			restart.Stop()
+			time.Sleep(50 * time.Millisecond)
+			os.Exit(0)
+		}
+	}
 }

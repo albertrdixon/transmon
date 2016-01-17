@@ -8,6 +8,7 @@ import (
 	"github.com/albertrdixon/gearbox/logger"
 	"github.com/albertrdixon/gearbox/url"
 	"github.com/ghodss/yaml"
+	"github.com/pborman/uuid"
 )
 
 type Config struct {
@@ -18,7 +19,7 @@ type Config struct {
 }
 
 type PIA struct {
-	User     string   `json:"user"`
+	User     string   `json:"username"`
 	Pass     string   `json:"password"`
 	ClientID string   `json:"client_id"`
 	URL      *url.URL `json:"url"`
@@ -29,8 +30,8 @@ type Transmission struct {
 	UID     int      `json:"uid"`
 	GID     int      `json:"gid"`
 	URL     *url.URL `json:"url"`
-	User    string   `json:"rpc_username"`
-	Pass    string   `json:"rpc_password"`
+	User    string   `json:"username"`
+	Pass    string   `json:"password"`
 }
 
 type OpenVPN struct {
@@ -60,6 +61,15 @@ func readConfig(file string) (*Config, error) {
 	}
 
 	c := new(Config)
-	c.Timeout = &duration{Duration: 5 * time.Minute}
+	u, _ := url.Parse(piaURL)
+	c.PIA = &PIA{URL: u, ClientID: uuid.New()}
+	c.Transmission = &Transmission{UID: 0, GID: 0}
+	c.OpenVPN = &OpenVPN{Tun: "tun0"}
+	c.Timeout = &duration{Duration: defaultDuration}
 	return c, yaml.Unmarshal(content, c)
 }
+
+const (
+	piaURL          = `https://www.privateinternetaccess.com/vpninfo/port_forward_assignment`
+	defaultDuration = 5 * time.Minute
+)
