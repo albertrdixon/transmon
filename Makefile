@@ -2,7 +2,7 @@ PROJECT = github.com/albertrdixon/transmon
 TEST_COMMAND = godep go test
 EXECUTABLE = transmon
 PKG = .
-LDFLAGS = -linkmode external -extldflags "-static -s"
+LDFLAGS = -s
 PLATFORMS = linux darwin
 
 .PHONY: dep-save dep-restore test test-verbose build install clean
