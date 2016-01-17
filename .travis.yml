@@ -18,3 +18,4 @@ deploy:
     - transmon-darwin.tgz
   on:
     repo: albertrdixon/transmon
+    tags: true
