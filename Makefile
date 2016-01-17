@@ -1,48 +1,61 @@
-REV ?= $$(git rev-parse --short=8 HEAD)
-BRANCH ?= $$(git rev-parse --abbrev-ref HEAD | tr / _)
-EXECUTABLE = transmon
-LDFLAGS = "-linkmode external -extldflags '-static -s'"
+PROJECT = github.com/albertrdixon/transmon
 TEST_COMMAND = godep go test
+EXECUTABLE = transmon
+PKG = .
+LDFLAGS = -linkmode external -extldflags "-static -s"
+PLATFORMS = linux darwin
 
-.PHONY: dep-save dep-restore test test-verbose build build-image install publish
+.PHONY: dep-save dep-restore test test-verbose build install clean
 
-all: test build install
-container: build-image publish
+all: test build
 
 help:
 	@echo "Available targets:"
 	@echo ""
-	@echo "  dep-save       : Save dependencies (godep save)"
-	@echo "  dep-restore    : Restore dependencies (godep restore)"
-	@echo "  test           : Run package tests"
-	@echo "  test-verbose   : Run package tests with verbose output"
-	@echo "  build          : Build binary (go build)"
-	@echo "  build-image    : Build binary and container image"
-	@echo "  install        : Install binary (go install)"
-	@echo "  publish        : Publish container image to remote repo"
+	@echo "  dep-save"
+	@echo "  dep-restore"
+	@echo "  test"
+	@echo "  test-verbose"
+	@echo "  build"
+	@echo "  package"
+	@echo "  install"
+	@echo "  clean"
 
 dep-save:
-	@echo "==> Saving dependencies to ./Godeps"
-	@godep save -t -v ./...
+	@echo "--> Saving dependencies..."
+	@godep save ./...
 
 dep-restore:
-	@echo "==> Restoring dependencies from ./Godeps"
-	@godep restore -v
+	@echo "--> Restoring dependencies..."
+	@godep restore
 
 test:
-	@echo "==> Running all tests"
+	@echo "--> Running all tests"
 	@echo ""
 	@$(TEST_COMMAND) ./...
 
 test-verbose:
-	@echo "==> Running all tests (verbose output)"
-	@echo ""
+	@echo "--> Running all tests (verbose output)"
+	@ echo ""
 	@$(TEST_COMMAND) -test.v ./...
 
 build:
-	@echo "==> Building $(EXECUTABLE) with ldflags '$(LDFLAGS)'"
-	@godep go build -ldflags $(LDFLAGS) -o bin/$(EXECUTABLE) *.go
+	@echo "--> Building executables"
+	@GOOS=linux CGO_ENABLED=0 godep go build -a -installsuffix cgo -ldflags '$(LDFLAGS)' -o bin/$(EXECUTABLE)-linux $(PKG)
+	@GOOS=darwin CGO_ENABLED=0 godep go build -a -ldflags '$(LDFLAGS)' -o bin/$(EXECUTABLE)-darwin $(PKG)
 
 install:
-	@echo "==> Installing $(EXECUTABLE) with ldflags '$(LDFLAGS)'"
-	@godep go install -ldflags $(LDFLAGS) $(BINARY)
+	@echo "--> Installing..."
+	@godep go install ./...
+
+package: build
+	@for p in $(PLATFORMS) ; do \
+		echo "--> Tar'ing up $$p/amd64 binary" ; \
+		test -f bin/$(EXECUTABLE)-$$p && \
+		tar czf $(EXECUTABLE)-$$p.tgz bin/$(EXECUTABLE)-$$p ; \
+	done
+
+clean:
+	@echo "--> Cleaning up workspace..."
+	@go clean ./...
+	@rm -rf t2* tnator*.tar.gz
