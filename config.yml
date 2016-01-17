@@ -1,0 +1,14 @@
+transmission:
+  command: transmission
+  uid: 0
+  gid: 0
+  url: http://localhost:9091
+  rpc_username: client
+  rpc_password: client
+pia:
+  url: https://www.privateinternetaccess.com/vpninfo/port_forward_assignment
+  user: p1786392
+  password: lu6wyd8ugS6oaW5oj8iD
+openvpn:
+  tun_device: tun0
+  command: openvpn
