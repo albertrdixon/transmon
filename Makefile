@@ -52,10 +52,11 @@ package: build
 	@for p in $(PLATFORMS) ; do \
 		echo "--> Tar'ing up $$p/amd64 binary" ; \
 		test -f bin/$(EXECUTABLE)-$$p && \
-		tar czf $(EXECUTABLE)-$$p.tgz bin/$(EXECUTABLE)-$$p ; \
+		mv bin/$(EXECUTABLE)-$$p $(EXECUTABLE) && \
+		tar czf $(EXECUTABLE)-$$p.tgz $(EXECUTABLE) ; \
 	done
 
 clean:
 	@echo "--> Cleaning up workspace..."
 	@go clean ./...
-	@rm -rf t2* tnator*.tar.gz
+	@rm -rf transmon-* transmon.tgz
