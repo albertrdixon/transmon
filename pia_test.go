@@ -15,12 +15,6 @@ import (
 func testServer(route, output string) *httptest.Server {
 	mux := http.NewServeMux()
 	server := httptest.NewServer(mux)
-	// m := martini.New()
-	// r := martini.NewRouter()
-	// r.Post(route, func() string {
-	// 	return output
-	// })
-	// m.Action(r.Handle)
 	m := web.New()
 	m.Post(route, func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, output)
