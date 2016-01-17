@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -27,15 +28,14 @@ func portUpdate(c *Config, ctx context.Context) error {
 	if er != nil || ctx.Err() != nil {
 		return er
 	}
-	logger.Infof("IP for %v is %v", c.OpenVPN.Tun, ip)
+	logger.Infof("%v: inet %v", c.OpenVPN.Tun, ip)
 
 	port, er := getPort(ip, c.PIA, c.Timeout.Duration, ctx)
 	if er != nil || ctx.Err() != nil {
 		return er
 	}
-	logger.Infof("Port from PIA is %d", port)
 
-	logger.Infof("Updating transmission port now")
+	logger.Infof("New transmission port: %d", port)
 	notify := func(e error, w time.Duration) {
 		logger.Debugf("Failed to update transmission port: %v", er)
 	}
@@ -108,6 +108,7 @@ func runTransAndVPN(c *Config, ctx context.Context) (*command, *command, error) 
 	}
 	t.SetUser(c.Transmission.UID, c.Transmission.GID)
 
+	logger.Infof(`Starting openvpn: %s`, c.OpenVPN.Command)
 	if er := v.Execute(ctx); er != nil {
 		return nil, nil, er
 	}
@@ -116,18 +117,19 @@ func runTransAndVPN(c *Config, ctx context.Context) (*command, *command, error) 
 	if er != nil || ctx.Err() != nil {
 		return nil, nil, er
 	}
-	logger.Infof("IP for %v is %v", c.OpenVPN.Tun, ip)
+	logger.Infof("%v: inet %v", c.OpenVPN.Tun, ip)
 
 	port, er := getPort(ip, c.PIA, c.Timeout.Duration, ctx)
 	if er != nil || ctx.Err() != nil {
 		return nil, nil, er
 	}
-	logger.Infof("Port from PIA is %d", port)
+	logger.Infof("New transmission port: %d", port)
 
 	if er := updateTransmissionConfig(c.Transmission.Config, ip, port); er != nil {
 		return nil, nil, er
 	}
 
+	logger.Infof("Starting transmission: %s", c.Transmission.Command)
 	if er := t.Execute(ctx); er != nil {
 		return nil, nil, er
 	}
@@ -136,6 +138,7 @@ func runTransAndVPN(c *Config, ctx context.Context) (*command, *command, error) 
 }
 
 func main() {
+	runtime.GOMAXPROCS(runtime.NumCPU())
 	kingpin.Version(version)
 	kingpin.MustParse(app.Parse(os.Args[1:]))
 	logger.Configure(*level, "[transmon] ", os.Stdout)
@@ -150,7 +153,7 @@ func main() {
 	}
 
 	logger.Infof("Port update will run once every hour")
-	port := time.NewTicker(5 * time.Second)
+	port := time.NewTicker(1 * time.Hour)
 	logger.Infof("VPN restart will run once every day")
 	restart := time.NewTicker(24 * time.Hour)
 	c, stop := context.WithCancel(context.Background())
@@ -165,32 +168,48 @@ func main() {
 		}
 	}(stop)
 
-	// Restart VPN
 	trans, vpn, er := runTransAndVPN(config, c)
 	if er != nil {
 		logger.Fatalf(er.Error())
 	}
 	portUpdate(config, c)
 
-	logger.Infof("Waiting on event")
-	for {
-		select {
-		case t := <-port.C:
-			logger.Infof("Updating transmission port at %v", t)
-			if er := portUpdate(config, c); er != nil {
+	go func() {
+		for {
+			select {
+			case <-c.Done():
 				trans.Stop()
 				vpn.Stop()
-				trans, vpn, _ = runTransAndVPN(config, c)
+				return
+			case t := <-port.C:
+				logger.Infof("Hourly update of transmission port at %v", t)
+				if er := portUpdate(config, c); er != nil {
+					trans.Stop()
+					vpn.Stop()
+					trans, vpn, er = runTransAndVPN(config, c)
+					if er != nil {
+						logger.Errorf(er.Error())
+					}
+				}
+			case t := <-restart.C:
+				logger.Infof("Daily restart of vpn and transmission at %v", t)
+				trans.Stop()
+				vpn.Stop()
+				trans, vpn, er = runTransAndVPN(config, c)
+				if er != nil {
+					logger.Errorf(er.Error())
+				}
 			}
-		case <-restart.C:
-			trans.Stop()
-			vpn.Stop()
-			trans, vpn, _ = runTransAndVPN(config, c)
-		case <-c.Done():
-			port.Stop()
-			restart.Stop()
-			time.Sleep(50 * time.Millisecond)
-			os.Exit(0)
 		}
+	}()
+
+	select {
+	case <-c.Done():
+		port.Stop()
+		restart.Stop()
+		trans.Stop()
+		vpn.Stop()
+		time.Sleep(50 * time.Millisecond)
+		os.Exit(0)
 	}
 }

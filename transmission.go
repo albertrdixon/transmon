@@ -44,7 +44,7 @@ type argList map[string]*json.RawMessage
 func (a argList) String() string {
 	list := make([]string, 0, len(a))
 	for k, v := range a {
-		list = append(list, fmt.Sprintf("%q: %v", k, v))
+		list = append(list, fmt.Sprintf("%q: %v", k, string([]byte(*v))))
 	}
 	return fmt.Sprintf("{%s}", strings.Join(list, ", "))
 }
@@ -82,7 +82,6 @@ func (t *transmission) updatePort(port int) error {
 	if er != nil {
 		return er
 	}
-	logger.Debugf("Post body: %v", string(body))
 	out, er := t.Post(string(body))
 	if er != nil {
 		return er
