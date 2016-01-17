@@ -1,0 +1,20 @@
+os: linux
+language: go
+go: 1.5.1
+install:
+- go get github.com/tools/godep
+- go get github.com/mitchellh/gox
+before_script: make dep-restore
+script: make test-verbose
+after_success:
+- cd $GOROOT/src && GOOS=darwin GOARCH=amd64 ./make.bash --no-clean && cd -
+- make package
+deploy:
+  provider: releases
+  api_key:
+    secure: zfAGgV4PgqPCuiLQkO6grSrP5n6i0p68eJkkTQeWJhRcfYFbE2aBn0SSqCoK1EqEJgxZcQT7/AhX9pc0tY+qMUBCiJs3SpC7DTO1dJU/+y0/AzHsyWxWG00YwAog8kHzZYzd8A3J+K8cU/NY+Jco5E8DRmrpH8zTsmfnDOUtqeVikcHZ8/ylWRG6cM4ehvrvliIZ9RIOot/IWFP8xhVJVMq0eBpGS+KbBoZt6goKFQ+FzZvI66NDYqJBS5xhe5S4Ss2GPzWUBH1UHvELj9gelwryQgZHRQEckdfRkZHwy06eO48QcfgB+ZPn/OkK832Avib8n4tK9ednPWXLotAN/Pinr0h8TyKQiPvPDZj1JMiDpimtGZ5W9PfHQ7iwKR68zg8GneVdu96y2SUyAt+n2Gl31itDJhZssIrKAvc5dDXkMzH04xmyC3/UqehTjasksCdVnLlVAwfr6JswomVcsJwixBmFFSBF58jGG4dd0f2iN0QhpNCa1EoMeQNRECv3h6m9K7eXLqHWE1322wu7niZ/9PhL51YavI3iVjwTVwCjT6xNh/GSeYjXncmYiYENKrT2TdA9kTcwcWlzfTZpNOnoqJI341qOlgQOl/7UbkKEGYu9h6nIIVsO6fDoom8vNZo2zq3+htd2xvkE5LYc2Bx4QJUBPUq45EGin7T9dWw=
+  file:
+    - transmon-linux.tgz
+    - transmon-darwin.tgz
+  on:
+    repo: albertrdixon/transmon
