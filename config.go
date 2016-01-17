@@ -26,17 +26,21 @@ type PIA struct {
 }
 
 type Transmission struct {
-	Command string   `json:"command"`
-	UID     int      `json:"uid"`
-	GID     int      `json:"gid"`
-	URL     *url.URL `json:"url"`
-	User    string   `json:"username"`
-	Pass    string   `json:"password"`
-	Config  string   `json:"config"`
+	Command          string `json:"command"`
+	UID              int    `json:"uid"`
+	GID              int    `json:"gid"`
+	Config           string `json:"config"`
+	*TransmissionRPC `json:"rpc"`
+}
+
+type TransmissionRPC struct {
+	URL  *url.URL `json:"url"`
+	User string   `json:"username"`
+	Pass string   `json:"password"`
 }
 
 type OpenVPN struct {
-	Tun     string `json:"tun_device"`
+	Tun     string `json:"device"`
 	Command string `json:"command"`
 }
 

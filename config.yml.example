@@ -1,0 +1,20 @@
+timeout: 10m
+
+pia:
+  username: username
+  password: password
+  client_id: 123-456
+
+transmission:
+  config: /etc/settings.json
+  command: transmission-daemon --config-dir /configs
+  uid: 7000
+  gid: 7000
+  rpc:
+    username: username
+    password: password
+    url: http://127.0.0.1:9091
+
+openvpn:
+  command: openvpn --cd /openvpn --daemon my-ovpn
+  device: tun3
