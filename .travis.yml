@@ -6,9 +6,7 @@ install:
 - go get github.com/mitchellh/gox
 before_script: make dep-restore
 script: make test-verbose
-after_success:
-- cd $GOROOT/src && GOOS=darwin GOARCH=amd64 ./make.bash --no-clean && cd -
-- make package
+after_success: make package
 deploy:
   provider: releases
   api_key:
