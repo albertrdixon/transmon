@@ -1,4 +1,4 @@
-package client
+package transmission
 
 import (
 	"io/ioutil"

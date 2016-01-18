@@ -1,4 +1,4 @@
-package main
+package vpn
 
 import (
 	"errors"
@@ -8,9 +8,9 @@ import (
 	"github.com/albertrdixon/gearbox/logger"
 )
 
-func findIP(vpn *OpenVPN) (string, error) {
-	logger.Debugf("Looking up addresses for interface %q", vpn.Tun)
-	inf, er := net.InterfaceByName(vpn.Tun)
+func FindIP(dev string) (string, error) {
+	logger.Debugf("Looking up addresses for interface %q", dev)
+	inf, er := net.InterfaceByName(dev)
 	if er != nil {
 		return "", er
 	}
@@ -22,7 +22,7 @@ func findIP(vpn *OpenVPN) (string, error) {
 		return "", errors.New("Interface has no addresses")
 	}
 
-	logger.Debugf("Addresses for %q: %v", vpn.Tun, addrs)
+	logger.Debugf("Addresses for %q: %v", dev, addrs)
 	bits := strings.SplitN(addrs[0].String(), "/", 2)
 	return bits[0], nil
 }

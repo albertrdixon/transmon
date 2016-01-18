@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"testing"
@@ -10,7 +10,7 @@ import (
 func TestReadConfig(t *testing.T) {
 	is := assert.New(t)
 
-	c, er := readConfig("config.yml.example")
+	c, er := Read("examples/config.yml")
 	is.NoError(er)
 	is.Equal("username", c.Transmission.User)
 	is.Equal("tun3", c.OpenVPN.Tun)

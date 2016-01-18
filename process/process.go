@@ -1,4 +1,4 @@
-package main
+package process
 
 import (
 	"bufio"
@@ -14,14 +14,14 @@ import (
 	"golang.org/x/net/context"
 )
 
-type command struct {
+type Process struct {
 	*exec.Cmd
 	name string
 	done chan struct{}
 	err  chan error
 }
 
-func newCommand(name, cmd string) (*command, error) {
+func New(name, cmd string) (*Process, error) {
 	list := strings.Fields(cmd)
 	if len(list) < 1 {
 		return nil, errors.New("Bad command")
@@ -31,46 +31,46 @@ func newCommand(name, cmd string) (*command, error) {
 	if er != nil {
 		return nil, er
 	}
-	return &command{
+	return &Process{
 		Cmd:  exec.Command(path, list[1:]...),
 		name: name,
 		done: make(chan struct{}, 1),
 	}, nil
 }
 
-func (c *command) Execute(ctx context.Context) error {
-	sto, er := c.StdoutPipe()
+func (p *Process) Execute(ctx context.Context) error {
+	sto, er := p.StdoutPipe()
 	if er != nil {
 		return er
 	}
-	ste, er := c.StderrPipe()
+	ste, er := p.StderrPipe()
 	if er != nil {
 		return er
 	}
 
-	go stream(c.name, sto, ctx)
-	go stream(c.name, ste, ctx)
+	go stream(p.name, sto, ctx)
+	go stream(p.name, ste, ctx)
 
-	if er := c.Start(); er != nil {
+	if er := p.Start(); er != nil {
 		return er
 	}
-	go wait(c)
+	go wait(p)
 
 	go func() {
 		select {
-		case <-c.done:
+		case <-p.done:
 			return
 		case <-ctx.Done():
-			c.Stop()
-			c.Process.Release()
+			p.Stop()
+			p.Process.Release()
 		}
 	}()
 
 	return nil
 }
 
-func (c *command) SetUser(uid, gid int) {
-	c.Cmd.SysProcAttr = &syscall.SysProcAttr{
+func (p *Process) SetUser(uid, gid int) {
+	p.Cmd.SysProcAttr = &syscall.SysProcAttr{
 		Credential: &syscall.Credential{
 			Uid: uint32(uid),
 			Gid: uint32(gid),
@@ -78,9 +78,9 @@ func (c *command) SetUser(uid, gid int) {
 	}
 }
 
-func (c *command) Stop() error {
-	if c.ProcessState != nil && !c.ProcessState.Exited() {
-		if er := c.Process.Kill(); er != nil {
+func (p *Process) Stop() error {
+	if p.ProcessState != nil && !p.ProcessState.Exited() {
+		if er := p.Process.Kill(); er != nil {
 			return er
 		}
 	}
@@ -99,10 +99,10 @@ func stream(name string, r io.Reader, c context.Context) {
 	}
 }
 
-func wait(c *command) {
-	if er := c.Wait(); er != nil {
-		logger.Errorf("%s: %v", c.name, er)
+func wait(p *Process) {
+	if er := p.Wait(); er != nil {
+		logger.Errorf("%s: %v", p.name, er)
 	}
-	c.done <- struct{}{}
-	close(c.done)
+	p.done <- struct{}{}
+	close(p.done)
 }

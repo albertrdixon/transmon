@@ -1,4 +1,4 @@
-package main
+package vpn
 
 import (
 	"testing"
@@ -9,7 +9,7 @@ import (
 func TestFindIPFake(t *testing.T) {
 	is := assert.New(t)
 
-	ip, er := findIP(&OpenVPN{Tun: "foo"})
+	ip, er := FindIP("foo")
 	is.Error(er)
 	is.Empty(ip)
 }

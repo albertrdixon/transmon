@@ -1,14 +1,9 @@
-package main
+package config
 
 import (
-	"bytes"
-	"io/ioutil"
 	"time"
 
-	"github.com/albertrdixon/gearbox/logger"
 	"github.com/albertrdixon/gearbox/url"
-	"github.com/ghodss/yaml"
-	"github.com/pborman/uuid"
 )
 
 type Config struct {
@@ -16,6 +11,8 @@ type Config struct {
 	PIA          *PIA          `json:"pia"`
 	Transmission *Transmission `json:"transmission"`
 	OpenVPN      *OpenVPN      `json:"openvpn"`
+	modTime      time.Time
+	file         string
 }
 
 type PIA struct {
@@ -47,34 +44,3 @@ type OpenVPN struct {
 type duration struct {
 	time.Duration
 }
-
-func (d *duration) UnmarshalJSON(p []byte) error {
-	val := bytes.Trim(p, `"`)
-	t, er := time.ParseDuration(string(val))
-	if er != nil {
-		return er
-	}
-	d.Duration = t
-	return nil
-}
-
-func readConfig(file string) (*Config, error) {
-	logger.Debugf("Reading config from %q", file)
-	content, er := ioutil.ReadFile(file)
-	if er != nil {
-		return nil, er
-	}
-
-	c := new(Config)
-	u, _ := url.Parse(piaURL)
-	c.PIA = &PIA{URL: u, ClientID: uuid.New()}
-	c.Transmission = &Transmission{UID: 0, GID: 0}
-	c.OpenVPN = &OpenVPN{Tun: "tun0"}
-	c.Timeout = &duration{Duration: defaultDuration}
-	return c, yaml.Unmarshal(content, c)
-}
-
-const (
-	piaURL          = `https://www.privateinternetaccess.com/vpninfo/port_forward_assignment`
-	defaultDuration = 5 * time.Minute
-)
