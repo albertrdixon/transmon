@@ -1,4 +1,4 @@
-package main
+package pia
 
 import (
 	"fmt"
@@ -35,10 +35,9 @@ func TestRequestPort(t *testing.T) {
 		t.Log(er.Error())
 		t.FailNow()
 	}
+	endpoint = u.String()
 
-	t.Logf("URL: %v", u)
-	p := &PIA{URL: u, User: "user", Pass: "pass", ClientID: uuid.New()}
-	port, er := requestPort("1.2.3.4", p)
+	port, er := RequestPort("1.2.3.4", "user", "pass", uuid.New())
 	is.NoError(er)
 	is.Equal(1234, port)
 }
