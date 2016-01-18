@@ -23,6 +23,10 @@
 			"Rev": "75c64e00889462ed41d1b85268f7a50923560bdd"
 		},
 		{
+			"ImportPath": "github.com/albertrdixon/gearbox/util",
+			"Rev": "75c64e00889462ed41d1b85268f7a50923560bdd"
+		},
+		{
 			"ImportPath": "github.com/alecthomas/template",
 			"Rev": "b867cc6ab45cece8143cfcc6fc9c77cf3f2c23c0"
 		},
@@ -47,8 +51,9 @@
 			"Rev": "0dc08b1671f34c4250ce212759ebd880f743d883"
 		},
 		{
-			"ImportPath": "github.com/longnguyen11288/go-transmission/client",
-			"Rev": "9d4089a0c6c26071ca452fb484724087682f8c7d"
+			"ImportPath": "github.com/imdario/mergo",
+			"Comment": "0.2.1",
+			"Rev": "bc0f15622cd2a38ef83388501e4cd6747665b164"
 		},
 		{
 			"ImportPath": "github.com/pborman/uuid",
@@ -62,6 +67,10 @@
 			"ImportPath": "github.com/stretchr/testify/assert",
 			"Comment": "v1.0-88-ge3a8ff8",
 			"Rev": "e3a8ff8ce36581f87a15341206f205b1da467059"
+		},
+		{
+			"ImportPath": "github.com/tubbebubbe/transmission",
+			"Rev": "e2d887ae736a9d5430a18f0ecb95b55d9a41b837"
 		},
 		{
 			"ImportPath": "github.com/zenazn/goji/web",
