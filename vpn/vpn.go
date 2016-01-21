@@ -9,7 +9,7 @@ import (
 )
 
 func FindIP(dev string) (string, error) {
-	logger.Debugf("Looking up addresses for interface %q", dev)
+	logger.Debugf("Looking up ip for interface %q", dev)
 	inf, er := net.InterfaceByName(dev)
 	if er != nil {
 		return "", er

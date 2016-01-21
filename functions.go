@@ -4,9 +4,9 @@ import (
 	"time"
 
 	"github.com/albertrdixon/gearbox/logger"
+	"github.com/albertrdixon/gearbox/process"
 	"github.com/albertrdixon/transmon/config"
 	"github.com/albertrdixon/transmon/pia"
-	"github.com/albertrdixon/transmon/process"
 	"github.com/albertrdixon/transmon/transmission"
 	"github.com/albertrdixon/transmon/vpn"
 	"github.com/cenkalti/backoff"
@@ -18,22 +18,23 @@ func portUpdate(c *config.Config, ctx context.Context) error {
 	if er != nil || ctx.Err() != nil {
 		return er
 	}
-	logger.Infof("%v: inet %v", c.OpenVPN.Tun, ip)
+	logger.Infof("New bind ip: (%s) %s", c.OpenVPN.Tun, ip)
 
 	port, er := getPort(ip, c.PIA.User, c.PIA.Pass, c.PIA.ClientID, c.Timeout.Duration, ctx)
 	if er != nil || ctx.Err() != nil {
 		return er
 	}
 
-	logger.Infof("New transmission port: %d", port)
+	logger.Infof("New peer port: %d", port)
 	notify := func(e error, w time.Duration) {
 		logger.Debugf("Failed to update transmission port: %v", er)
 	}
 	operation := func() error {
 		select {
 		default:
-			t := transmission.NewRawClient(c.Transmission.URL.String(), c.Transmission.User, c.Transmission.Pass)
-			return t.UpdatePort(port)
+			return transmission.
+				NewRawClient(c.Transmission.URL.String(), c.Transmission.User, c.Transmission.Pass).
+				UpdatePort(port)
 		case <-ctx.Done():
 			return nil
 		}
@@ -52,33 +53,29 @@ func startProcesses(c *config.Config, ctx context.Context) (*process.Process, *p
 	if er != nil {
 		return nil, nil, er
 	}
-	t.SetUser(c.Transmission.UID, c.Transmission.GID)
+	t.SetUser(uint32(c.Transmission.UID), uint32(c.Transmission.GID))
 
-	logger.Infof(`Starting openvpn: %s`, c.OpenVPN.Command)
-	if er := v.Execute(ctx); er != nil {
-		return nil, nil, er
-	}
+	logger.Infof("Starting openvpn")
+	go v.ExecuteAndRestart(ctx)
 
 	ip, er := getIP(c.OpenVPN.Tun, c.Timeout.Duration, ctx)
 	if er != nil || ctx.Err() != nil {
 		return nil, nil, er
 	}
-	logger.Infof("%v: inet %v", c.OpenVPN.Tun, ip)
+	logger.Infof("New bind ip: (%s) %s", c.OpenVPN.Tun, ip)
 
 	port, er := getPort(ip, c.PIA.User, c.PIA.Pass, c.PIA.ClientID, c.Timeout.Duration, ctx)
 	if er != nil || ctx.Err() != nil {
 		return nil, nil, er
 	}
-	logger.Infof("New transmission port: %d", port)
+	logger.Infof("New peer port: %d", port)
 
 	if er := transmission.UpdateSettings(c.Transmission.Config, ip, port); er != nil {
 		return nil, nil, er
 	}
 
-	logger.Infof("Starting transmission: %s", c.Transmission.Command)
-	if er := t.Execute(ctx); er != nil {
-		return nil, nil, er
-	}
+	logger.Infof("Starting transmission")
+	go t.ExecuteAndRestart(ctx)
 
 	return t, v, nil
 }

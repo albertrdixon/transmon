@@ -16,15 +16,19 @@
 		},
 		{
 			"ImportPath": "github.com/albertrdixon/gearbox/logger",
-			"Rev": "75c64e00889462ed41d1b85268f7a50923560bdd"
+			"Rev": "41a1f7ca5fbab0ddca71ba573ea2776cc451b5d1"
+		},
+		{
+			"ImportPath": "github.com/albertrdixon/gearbox/process",
+			"Rev": "41a1f7ca5fbab0ddca71ba573ea2776cc451b5d1"
 		},
 		{
 			"ImportPath": "github.com/albertrdixon/gearbox/url",
-			"Rev": "75c64e00889462ed41d1b85268f7a50923560bdd"
+			"Rev": "41a1f7ca5fbab0ddca71ba573ea2776cc451b5d1"
 		},
 		{
 			"ImportPath": "github.com/albertrdixon/gearbox/util",
-			"Rev": "75c64e00889462ed41d1b85268f7a50923560bdd"
+			"Rev": "41a1f7ca5fbab0ddca71ba573ea2776cc451b5d1"
 		},
 		{
 			"ImportPath": "github.com/alecthomas/template",
@@ -33,6 +37,11 @@
 		{
 			"ImportPath": "github.com/alecthomas/units",
 			"Rev": "6b4e7dc5e3143b85ea77909c72caf89416fc2915"
+		},
+		{
+			"ImportPath": "github.com/bitly/go-simplejson",
+			"Comment": "v0.5.0",
+			"Rev": "aabad6e819789e569bd6aabf444c935aa9ba1e44"
 		},
 		{
 			"ImportPath": "github.com/cenkalti/backoff",
