@@ -10,13 +10,6 @@ import (
 
 var seen map[string]*torrentStatus
 
-type settings struct {
-	Stuff   map[string]*json.RawMessage `json:",inline"`
-	Addr    string                      `json:"bind-address-ipv4"`
-	Port    int                         `json:"peer-port"`
-	Forward bool                        `json:"port-forwarding-enabled"`
-}
-
 type RawClient struct {
 	transmission.ApiClient
 }
@@ -65,14 +58,14 @@ func NewClient(url, user, pass string) *Client {
 	return &Client{TransmissionClient: transmission.New(url, user, pass)}
 }
 
-func newRequest(method string, args ...interface{}) *request {
+func newRequest(method string, args ...interface{}) (*request, int) {
 	c := &request{
 		Method: method,
 		Tag:    tag(),
 		Args:   make(map[string]*json.RawMessage),
 	}
 	if !even(len(args)) {
-		return c
+		return c, c.Tag
 	}
 	for i := range args {
 		s, ok := args[i].(string)
@@ -83,7 +76,7 @@ func newRequest(method string, args ...interface{}) *request {
 			}
 		}
 	}
-	return c
+	return c, c.Tag
 }
 
 func init() {

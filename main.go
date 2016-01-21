@@ -48,8 +48,6 @@ func workers(conf *config.Config, c context.Context, quit context.CancelFunc) {
 		case <-c.Done():
 			port.Stop()
 			restart.Stop()
-			trans.Stop()
-			vpn.Stop()
 			return
 		case t := <-port.C:
 			logger.Infof("Hourly update of transmission port at %v", t)
@@ -119,7 +117,7 @@ func main() {
 		logger.Infof("Received interrupt, shutting down...")
 		close(sig)
 		stop()
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(3 * time.Second)
 		os.Exit(0)
 	}
 }

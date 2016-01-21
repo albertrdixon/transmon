@@ -27,6 +27,7 @@ func SetPortForwardEndpoint(u *url.URL) {
 }
 
 func RequestPort(ip, user, pass, id string) (int, error) {
+	logger.Debugf("Requesting new port from Private Internet Access")
 	values := ur.Values{}
 	values.Add("user", user)
 	values.Add("pass", pass)

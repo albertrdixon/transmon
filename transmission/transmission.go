@@ -10,18 +10,24 @@ import (
 
 	"github.com/albertrdixon/gearbox/logger"
 	"github.com/albertrdixon/gearbox/util"
+	"github.com/bitly/go-simplejson"
 	"github.com/cenkalti/backoff"
 	"github.com/tubbebubbe/transmission"
 )
 
 func (r *RawClient) UpdatePort(port int) error {
-	req := newRequest("session-set", "peer-port", port, "port-forwarding-enabled", true)
-	tag := req.Tag
-	logger.Debugf("Marshalling %v", req)
+	req, tag := newRequest("session-set",
+		"peer-port", port,
+		"port-forwarding-enabled", true,
+		"peer-port-random-on-start", false,
+	)
+
+	logger.Debugf("Encoding %v", req)
 	body, er := json.Marshal(req)
 	if er != nil {
 		return er
 	}
+	logger.Debugf("Requesting transmission peer port update to %d", port)
 	out, er := r.Post(string(body))
 	if er != nil {
 		return er
@@ -37,41 +43,48 @@ func (r *RawClient) UpdatePort(port int) error {
 	if response.Result != "success" {
 		return errors.New(response.Result)
 	}
+	logger.Infof("Peer port updated to %d", port)
 	return nil
 }
 
 func UpdateSettings(path, ip string, port int) error {
+	logger.Infof("Updating transmission settings. bind-ip=%s port=%d", ip, port)
 	data, er := ioutil.ReadFile(path)
 	if er != nil {
 		return er
 	}
 
-	s := new(settings)
-	if er := json.Unmarshal(data, s); er != nil {
-		return er
-	}
-
-	s.Addr = ip
-	s.Port = port
-	s.Forward = true
-
-	data, er = json.Marshal(s)
+	s, er := simplejson.NewJson(data)
 	if er != nil {
 		return er
 	}
 
+	s.Set(bindKey, ip)
+	s.Set(portKey, port)
+	s.Set(forwardKey, true)
+	s.Set(randomKey, false)
+
+	data, er = s.Encode()
+	if er != nil {
+		return er
+	}
+
+	logger.Debugf("Writing updated transmission settings")
 	info, _ := os.Stat(path)
 	return ioutil.WriteFile(path, data, info.Mode().Perm())
 }
 
 func (c *Client) CleanTorrents() error {
+	logger.Infof("Running torrent cleaner")
 	torrents, er := c.GetTorrents()
 	if er != nil {
 		return er
 	}
 
 	torrents.SortByID(false)
+	logger.Infof("Found %d torrents to process", len(torrents))
 	for _, t := range torrents {
+		logger.Debugf("[Torrent %d: %q] Checking status", t.ID, t.Name)
 		id := util.Hashf(md5.New(), t.ID, t.Name)
 		status := &torrentStatus{Torrent: t, id: id, failures: 0}
 		status.setFailures()
@@ -81,9 +94,10 @@ func (c *Client) CleanTorrents() error {
 			if !updated(st.Torrent, status.Torrent) {
 				status.failures++
 			}
-		} else {
-			seen[id] = status
 		}
+
+		seen[id] = status
+		logger.Debugf("[Torrent %d: %q] Failures: %d", t.ID, t.Name, status.failures)
 	}
 
 	b := backoff.NewExponentialBackOff()
@@ -139,3 +153,10 @@ func delTorrent(c *Client, t transmission.Torrent) backoff.Operation {
 func updated(a, b transmission.Torrent) bool {
 	return a.PercentDone != b.PercentDone || a.UploadRatio != b.UploadRatio
 }
+
+const (
+	bindKey    = "bind-address-ipv4"
+	portKey    = "peer-port"
+	forwardKey = "port-forwarding-enabled"
+	randomKey  = "peer-port-random-on-start"
+)
