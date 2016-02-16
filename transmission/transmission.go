@@ -33,7 +33,7 @@ func (r *RawClient) CheckPort() bool {
 	}
 
 	arg := resp.Args["port-is-open"]
-	if er := json.Unmarshal(*arg, open); er != nil {
+	if er := json.Unmarshal(*arg, &open); er != nil {
 		logger.Warnf("Failed to check port: %v", er)
 		return false
 	}
