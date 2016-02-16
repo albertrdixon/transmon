@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"code.google.com/p/go-uuid/uuid"
 	"github.com/albertrdixon/gearbox/url"
+	"github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/zenazn/goji/web"
 )
@@ -37,7 +37,7 @@ func TestRequestPort(t *testing.T) {
 	}
 	endpoint = u.String()
 
-	port, er := RequestPort("1.2.3.4", "user", "pass", uuid.New())
+	port, er := RequestPort("1.2.3.4", "user", "pass", uuid.NewV4().String())
 	is.NoError(er)
 	is.Equal(1234, port)
 }

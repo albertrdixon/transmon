@@ -15,6 +15,31 @@ import (
 	"github.com/tubbebubbe/transmission"
 )
 
+func (r *RawClient) CheckPort() bool {
+	var (
+		open    bool
+		resp    = new(response)
+		req, _  = newRequest("port-test")
+		body, _ = json.Marshal(req)
+		out, er = r.Post(string(body))
+	)
+	if er != nil {
+		logger.Warnf("Failed to check port: %v", er)
+		return false
+	}
+	if er := json.Unmarshal(out, resp); er != nil {
+		logger.Warnf("Failed to check port: %v", er)
+		return false
+	}
+
+	arg := resp.Args["port-is-open"]
+	if er := json.Unmarshal(*arg, open); er != nil {
+		logger.Warnf("Failed to check port: %v", er)
+		return false
+	}
+	return open
+}
+
 func (r *RawClient) UpdatePort(port int) error {
 	req, tag := newRequest("session-set",
 		"peer-port", port,

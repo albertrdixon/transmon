@@ -1,4 +1,7 @@
 timeout: 10m
+cleaner:
+  enabled: true
+  interval: 3h
 
 pia:
   username: username

@@ -13,6 +13,37 @@ import (
 	"golang.org/x/net/context"
 )
 
+func portCheck(t *process.Process, c *config.Config, ctx context.Context) error {
+	if transmission.
+		NewRawClient(c.Transmission.URL.String(), c.Transmission.User, c.Transmission.Pass).
+		CheckPort() {
+		return nil
+	}
+
+	logger.Infof("Transmission port not open, stopping transmission")
+	t.Stop()
+
+	ip, er := getIP(c.OpenVPN.Tun, c.Timeout.Duration, ctx)
+	if er != nil {
+		return er
+	}
+	logger.Infof("New bind ip: (%s) %s", c.OpenVPN.Tun, ip)
+
+	port, er := getPort(ip, c.PIA.User, c.PIA.Pass, c.PIA.ClientID, c.Timeout.Duration, ctx)
+	if er != nil {
+		return er
+	}
+	logger.Infof("New peer port: %d", port)
+
+	if er := transmission.UpdateSettings(c.Transmission.Config, ip, port); er != nil {
+		return er
+	}
+
+	logger.Infof("Starting transmission")
+	go t.ExecuteAndRestart(ctx)
+	return nil
+}
+
 func portUpdate(c *config.Config, ctx context.Context) error {
 	ip, er := getIP(c.OpenVPN.Tun, c.Timeout.Duration, ctx)
 	if er != nil || ctx.Err() != nil {
@@ -44,40 +75,49 @@ func portUpdate(c *config.Config, ctx context.Context) error {
 	return backoff.RetryNotify(operation, b, notify)
 }
 
-func startProcesses(c *config.Config, ctx context.Context) (*process.Process, *process.Process, error) {
-	t, er := process.New("transmission", c.Transmission.Command)
-	if er != nil {
-		return nil, nil, er
-	}
-	v, er := process.New("openvpn", c.OpenVPN.Command)
-	if er != nil {
-		return nil, nil, er
-	}
+func restartProcesses(t, v *process.Process, c *config.Config, ctx context.Context) error {
+	var (
+		notify = func(e error, t time.Duration) {
+			logger.Errorf("Failed to restart processes (retry in %v): %v", t, e)
+		}
+		operation = func() error {
+			t.Stop()
+			v.Stop()
+			return startProcesses(t, v, c, ctx)
+		}
+		b = backoff.NewExponentialBackOff()
+	)
+	b.MaxElapsedTime = 30 * time.Minute
+	b.MaxInterval = 10 * time.Second
+	return backoff.RetryNotify(operation, b, notify)
+}
+
+func startProcesses(t, v *process.Process, c *config.Config, ctx context.Context) error {
 	t.SetUser(uint32(c.Transmission.UID), uint32(c.Transmission.GID))
 
 	logger.Infof("Starting openvpn")
 	go v.ExecuteAndRestart(ctx)
 
 	ip, er := getIP(c.OpenVPN.Tun, c.Timeout.Duration, ctx)
-	if er != nil || ctx.Err() != nil {
-		return nil, nil, er
+	if er != nil {
+		return er
 	}
 	logger.Infof("New bind ip: (%s) %s", c.OpenVPN.Tun, ip)
 
 	port, er := getPort(ip, c.PIA.User, c.PIA.Pass, c.PIA.ClientID, c.Timeout.Duration, ctx)
-	if er != nil || ctx.Err() != nil {
-		return nil, nil, er
+	if er != nil {
+		return er
 	}
 	logger.Infof("New peer port: %d", port)
 
 	if er := transmission.UpdateSettings(c.Transmission.Config, ip, port); er != nil {
-		return nil, nil, er
+		return er
 	}
 
 	logger.Infof("Starting transmission")
 	go t.ExecuteAndRestart(ctx)
 
-	return t, v, nil
+	return nil
 }
 
 func getPort(ip, user, pass, id string, timeout time.Duration, c context.Context) (int, error) {

@@ -10,6 +10,7 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/albertrdixon/gearbox/logger"
+	"github.com/albertrdixon/gearbox/process"
 	"github.com/albertrdixon/transmon/config"
 	"github.com/albertrdixon/transmon/transmission"
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -20,24 +21,38 @@ var (
 	app       = kingpin.New("transmon", "Keep your transmission ports clear!")
 
 	conf  = app.Flag("config", "config file").Short('C').Default("/etc/transmon/config.yml").OverrideDefaultFromEnvar("CONFIG").ExistingFile()
-	cl    = app.Flag("cleaner", "enable transmission cleaner thread").Short('c').Bool()
 	level = app.Flag("log-level", "log level. One of: fatal, error, warn, info, debug").Short('l').Default("info").OverrideDefaultFromEnvar("LOG_LEVEL").Enum(logger.Levels...)
 )
 
 const (
 	portInterval    = 1 * time.Hour
 	restartInterval = 24 * time.Hour
+	checkInterval   = 5 * time.Minute
 	cleanInterval   = 30 * time.Minute
 )
 
 func workers(conf *config.Config, c context.Context, quit context.CancelFunc) {
-	logger.Infof("Port update will run once every hour")
-	port := time.NewTicker(portInterval)
-	logger.Infof("VPN restart will run once every day")
-	restart := time.NewTicker(restartInterval)
+	var (
+		port    = time.NewTicker(portInterval)
+		restart = time.NewTicker(restartInterval)
+		check   = time.NewTicker(checkInterval)
+	)
 
-	trans, vpn, er := startProcesses(conf, c)
+	logger.Infof("Port update will run once every hour")
+	logger.Infof("VPN restart will run once every day")
+
+	trans, er := process.New("transmission", conf.Transmission.Command, os.Stdout)
 	if er != nil {
+		quit()
+		logger.Fatalf(er.Error())
+	}
+	vpn, er := process.New("openvpn", conf.OpenVPN.Command, os.Stdout)
+	if er != nil {
+		quit()
+		logger.Fatalf(er.Error())
+	}
+
+	if er := startProcesses(trans, vpn, conf, c); er != nil {
 		quit()
 		logger.Fatalf(er.Error())
 	}
@@ -48,32 +63,50 @@ func workers(conf *config.Config, c context.Context, quit context.CancelFunc) {
 		case <-c.Done():
 			port.Stop()
 			restart.Stop()
+			trans.Stop()
+			vpn.Stop()
 			return
+		case t := <-check.C:
+			logger.Debugf("Checking transmission port at %v", t)
+			if er := portCheck(trans, conf, c); er != nil {
+				if er := restartProcesses(trans, vpn, conf, c); er != nil {
+					port.Stop()
+					restart.Stop()
+					trans.Stop()
+					vpn.Stop()
+					logger.Fatalf(er.Error())
+				}
+			}
 		case t := <-port.C:
-			logger.Infof("Hourly update of transmission port at %v", t)
+			logger.Infof("Update of Transmission port at %v", t)
 			if er := portUpdate(conf, c); er != nil {
-				trans.Stop()
-				vpn.Stop()
-				trans, vpn, er = startProcesses(conf, c)
-				if er != nil {
-					logger.Errorf(er.Error())
+				if er := restartProcesses(trans, vpn, conf, c); er != nil {
+					port.Stop()
+					restart.Stop()
+					trans.Stop()
+					vpn.Stop()
+					logger.Fatalf(er.Error())
 				}
 			}
 		case t := <-restart.C:
-			logger.Infof("Daily restart of vpn and transmission at %v", t)
-			trans.Stop()
-			vpn.Stop()
-			trans, vpn, er = startProcesses(conf, c)
-			if er != nil {
-				logger.Errorf(er.Error())
+			logger.Infof("Restarting Transmission and OpenVPN at %v", t)
+			if er := restartProcesses(trans, vpn, conf, c); er != nil {
+				port.Stop()
+				restart.Stop()
+				trans.Stop()
+				vpn.Stop()
+				logger.Fatalf(er.Error())
 			}
 		}
 	}
 }
 
 func cleaner(conf *config.Config, c context.Context) {
-	logger.Infof("Torrent cleaner will run once every 30 minutes")
-	clean := time.NewTicker(cleanInterval)
+	var (
+		d     = conf.Cleaner.Interval.Duration
+		clean = time.NewTicker(d)
+	)
+	logger.Infof("Torrent cleaner will run once every %v", d)
 	for {
 		select {
 		case <-c.Done():
@@ -106,7 +139,7 @@ func main() {
 
 	go workers(conf, c, stop)
 
-	if *cl {
+	if conf.Cleaner.Enabled {
 		go cleaner(conf, c)
 	}
 

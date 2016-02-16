@@ -7,12 +7,18 @@ import (
 )
 
 type Config struct {
-	Timeout      *duration     `json:"timeout,omitempty"`
+	Timeout      *duration `json:"timeout,omitempty"`
+	Cleaner      *Cleaner
 	PIA          *PIA          `json:"pia"`
 	Transmission *Transmission `json:"transmission"`
 	OpenVPN      *OpenVPN      `json:"openvpn"`
 	modTime      time.Time
 	file         string
+}
+
+type Cleaner struct {
+	Enabled  bool
+	Interval *duration
 }
 
 type PIA struct {
