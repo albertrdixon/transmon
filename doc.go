@@ -11,10 +11,9 @@
 //        --help         Show context-sensitive help (also try --help-long and --help-man).
 //        -C, --config=/etc/transmon/config.yml
 //                       config file
-//        -c, --cleaner  enable transmission cleaner thread
 //        -l, --log-level=info
 //                       log level. One of: fatal, error, warn, info, debug
 //
 package main
 
-const version = "v0.2.1"
+const version = "v0.2.2"
