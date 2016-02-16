@@ -6,11 +6,6 @@
 	],
 	"Deps": [
 		{
-			"ImportPath": "code.google.com/p/go-uuid/uuid",
-			"Comment": "null-15",
-			"Rev": "'35bc42037350f0078e3c974c6ea690f1926603ab'"
-		},
-		{
 			"ImportPath": "github.com/Pallinder/go-randomdata",
 			"Rev": "bb2ec5ce70e0fb762ea90618c9d497fb36fe9113"
 		},
@@ -65,12 +60,12 @@
 			"Rev": "bc0f15622cd2a38ef83388501e4cd6747665b164"
 		},
 		{
-			"ImportPath": "github.com/pborman/uuid",
-			"Rev": "cccd189d45f7ac3368a0d127efb7f4d08ae0b655"
-		},
-		{
 			"ImportPath": "github.com/pmezard/go-difflib/difflib",
 			"Rev": "e8554b8641db39598be7f6342874b958f12ae1d4"
+		},
+		{
+			"ImportPath": "github.com/satori/go.uuid",
+			"Rev": "d41af8bb6a7704f00bc3b7cba9355ae6a5a80048"
 		},
 		{
 			"ImportPath": "github.com/stretchr/testify/assert",

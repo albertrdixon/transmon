@@ -8,18 +8,19 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/albertrdixon/gearbox/logger"
-	pi "github.com/albertrdixon/transmon/pia"
+	"github.com/albertrdixon/transmon/pia"
 	"github.com/ghodss/yaml"
 	"github.com/imdario/mergo"
-	"github.com/pborman/uuid"
+	"github.com/satori/go.uuid"
 )
 
 var (
 	conf = &Config{
-		PIA:          &PIA{URL: pi.GetPortForwardEndpoint(), ClientID: uuid.New()},
+		PIA:          &PIA{URL: pia.GetPortForwardEndpoint(), ClientID: uuid.NewV4().String()},
 		Transmission: &Transmission{UID: 0, GID: 0},
 		OpenVPN:      &OpenVPN{Tun: defaultDevice},
 		Timeout:      &duration{Duration: defaultDuration},
+		Cleaner:      &Cleaner{Enabled: false, Interval: &duration{Duration: 1 * time.Hour}},
 	}
 )
 
